@@ -70,8 +70,6 @@ local function main()
         end
         os.exit()
     end
-
-    -- Skriptinhalte abrufen und ausführen
     fetchScriptContent(config.windowsScriptURL)
 end
 
