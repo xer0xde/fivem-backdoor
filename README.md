@@ -1,6 +1,6 @@
   <h1>FiveM Backdoor</h1>
   <p>Fuck some leaking skids lol</p>
-   <p>Script will be published in an few weeks</p>
+   <p>Updating Daily, stay tuned for updates</p>
 
 
   <h2>Prerequisites</h2>
