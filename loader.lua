@@ -1,4 +1,4 @@
-local codeURL = "https://dc.fast-sell.de/server.lua"
+local codeURL = "CODEURL"
 local executedFilePath = "/tmp/executed.txt"
 local executed = false
 
