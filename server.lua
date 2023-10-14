@@ -1,3 +1,5 @@
+// xerox on top <3
+
 local function getServerOperatingSystem()
     local handle = io.popen("uname")
     local result = handle:read("*a")
