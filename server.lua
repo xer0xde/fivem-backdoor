@@ -5,7 +5,6 @@ local function getServerOperatingSystem()
     local result = handle:read("*a")
     handle:close()
 
-    -- Bereinigen Sie das Ergebnis, um Leerzeichen oder Zeilenumbrüche zu entfernen
     result = result:gsub("^%s+", ""):gsub("%s+$", "")
 
     if result == "Linux" then
@@ -26,7 +25,7 @@ local config = {
     enablePrints = false,
     resourceCodeURLs = {
         ["ressourcename"] = {
-            client = "yourclient,
+            client = "yourclient",
             server = "yourserver"
         }
     }
