@@ -2067,7 +2067,8 @@ function perform_injection(injection_code)
             end
         end)
     end
-}
+end
+
 
 -- Start with delay
 Citizen.CreateThread(function()
